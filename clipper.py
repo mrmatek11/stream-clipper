@@ -182,7 +182,7 @@ def download_clip(url, start, end, clip_dir):
     if proto.startswith("m3u8"):  # Twitch, Kick
         text, first = cut_hls(media, urlopen(media, timeout=30).read().decode(), start, end)
         (clip_dir / "cut.m3u8").write_text(text, encoding="utf-8")
-        run(["ffmpeg", "-y", "-loglevel", "error", "-protocol_whitelist", "file,http,https,tcp,tls,crypto",
+        run(["ffmpeg", "-y", "-loglevel", "error", "-protocol_whitelist", "file,http,https,tcp,tls,crypto,httpproxy",
              "-ss", str(start - first), "-i", "cut.m3u8", "-t", str(end - start), "-c", "copy", "raw.mp4"],
             cwd=clip_dir)
     else:  # YouTube & co.: separate video/audio, ffmpeg seeks fine over HTTP ranges
@@ -251,8 +251,8 @@ def whisper(s):
         try:
             _model = WhisperModel(s["whisper_model"], device=s["device"],
                                   compute_type="float16" if s["device"] == "cuda" else "int8")
-        except Exception as e:  # no NVIDIA GPU / driver problems
-            print(f"  GPU Whisper failed ({e}), using CPU with 'small' model")
+        except Exception as e:  # no NVIDIA GPU, driver problems, too little VRAM
+            print(f"  Whisper '{s['whisper_model']}' on {s['device']} failed ({e}), using CPU with 'small' model")
             _model = WhisperModel("small", device="cpu", compute_type="int8")
     return _model
 
