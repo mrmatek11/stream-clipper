@@ -1,4 +1,4 @@
-from clipper import ass_time, chat_curve, channel_url, make_ass, peaks
+from clipper import ass_time, chat_curve, channel_url, cut_hls, make_ass, peaks
 
 # quiet chat at 1 msg/s with one KEKW burst at 500 s
 ev = [(t, "hi") for t in range(1000)] + [(500 + i / 10, "KEKW") for i in range(100)]
@@ -20,4 +20,11 @@ assert ass_time(3725.5) == "1:02:05.50"
 a = make_ass([(0, .5, " hi"), (.5, 1, " {x}"), (1, 2, " yo"), (2, 3, " end")], 3, 80, 500)
 assert "Dialogue: 0,0:00:00.00,0:00:02.00,Default,,0,0,0,,HI (X) YO" in a
 assert a.rstrip().endswith(",END")
+# HLS cut keeps init segment + only segments overlapping [25, 41)
+pl = "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXT-X-MAP:URI=\"init.mp4\"\n" + "".join(f"#EXTINF:10.000,\n{i}.mp4\n" for i in range(10))
+text, first = cut_hls("https://cdn/x/index.m3u8", pl, 25, 41)
+assert first == 20.0, first
+assert 'URI="https://cdn/x/init.mp4"' in text
+assert [l for l in text.splitlines() if l.startswith("https")] == [f"https://cdn/x/{i}.mp4" for i in (2, 3, 4)], text
+
 print("ok")

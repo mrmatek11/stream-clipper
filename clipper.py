@@ -15,6 +15,8 @@ import sys
 import tomllib
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urljoin
+from urllib.request import urlopen
 
 HYPE = re.compile(r"KEKW|LUL|OMEGALUL|LMAO|POG|\bW+\b|xD+|HAHA|\?\?\?|\bclip|😂|💀", re.I)
 
@@ -96,10 +98,10 @@ def chat_curve(events):
     return [c[i] for i in range(max(c) + 1)] if c else []
 
 
-def audio_curve(url):
+def audio_curve(url, work):
     """Per-second loudness (mean energy) of the whole VOD, streamed audio-only - nothing saved to disk."""
     import numpy as np
-    dl = subprocess.Popen(["yt-dlp", "-q", "--no-warnings", "-f", "ba/b", "-N", "8", "-o", "-", url],
+    dl = subprocess.Popen(["yt-dlp", "-q", "--no-warnings", "-f", "ba/b", "-N", "8", "-P", f"temp:{work}", "-o", "-", url],
                           stdout=subprocess.PIPE)
     ff = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-i", "pipe:", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"],
                           stdin=dl.stdout, stdout=subprocess.PIPE)
@@ -148,12 +150,44 @@ def moments(url, work, s):
         print(f"  {len(events)} chat messages -> {len(hits)} moments")
         return hits
     print("  analysing audio loudness (whole VOD, audio only)...")
-    hits = peaks(audio_curve(url), s["clips_per_vod"], s["window"], s["min_gap"], s["audio_min_ratio"])
+    hits = peaks(audio_curve(url, work), s["clips_per_vod"], s["window"], s["min_gap"], s["audio_min_ratio"])
     print(f"  {len(hits)} loud moments")
     return hits
 
 
 # ---------- making the clip ----------
+
+def cut_hls(m3u8_url, playlist, start, end):
+    """HLS playlist with only the segments covering [start, end] -> (text, time of its first segment).
+    ffmpeg can't seek in Twitch's fMP4 HLS and would otherwise read the whole VOD up to `start`."""
+    head, body, t, dur, first = [], [], 0.0, 0.0, None
+    for line in playlist.splitlines():
+        if line.startswith("#EXTINF:"):
+            dur = float(line[8:].split(",")[0])
+        elif line and not line.startswith("#"):
+            if t + dur > start and t < end:
+                first = t if first is None else first
+                body += [f"#EXTINF:{dur},", urljoin(m3u8_url, line)]
+            t += dur
+        elif line.startswith("#EXT-X-MAP"):
+            head.append(re.sub(r'URI="([^"]+)"', lambda m: f'URI="{urljoin(m3u8_url, m[1])}"', line))
+        elif line.startswith(("#EXTM3U", "#EXT-X-VERSION", "#EXT-X-TARGETDURATION")):
+            head.append(line)
+    return "\n".join(head + body + ["#EXT-X-ENDLIST", ""]), first or 0.0
+
+
+def download_clip(url, start, end, clip_dir):
+    proto, _, media = run(["yt-dlp", "-q", "--no-warnings", "-f", "b[height<=1080]/b", "--print",
+                           "%(protocol)s %(url)s", url], capture_output=True, text=True).stdout.strip().partition(" ")
+    if proto.startswith("m3u8"):  # Twitch, Kick
+        text, first = cut_hls(media, urlopen(media, timeout=30).read().decode(), start, end)
+        (clip_dir / "cut.m3u8").write_text(text, encoding="utf-8")
+        run(["ffmpeg", "-y", "-loglevel", "error", "-protocol_whitelist", "file,http,https,tcp,tls,crypto",
+             "-ss", str(start - first), "-i", "cut.m3u8", "-t", str(end - start), "-c", "copy", "raw.mp4"],
+            cwd=clip_dir)
+    else:  # YouTube & co.: separate video/audio, ffmpeg seeks fine over HTTP ranges
+        run(["yt-dlp", "-q", "--no-warnings", "-f", "bv*[height<=1080]+ba/b", "--download-sections",
+             f"*{start}-{end}", "--merge-output-format", "mp4", "-o", str(clip_dir / "raw.%(ext)s"), url])
 
 def ass_time(t):
     cs = round(t * 100)
@@ -236,8 +270,7 @@ def process_vod(url, vid, group, s):
             clip_dir = work / str(n)
             clip_dir.mkdir(exist_ok=True)
             try:
-                run(["yt-dlp", "-q", "--no-warnings", "-f", "bv*[height<=1080]+ba/b", "--download-sections",
-                     f"*{start}-{end}", "--merge-output-format", "mp4", "-o", str(clip_dir / "raw.%(ext)s"), url])
+                download_clip(url, start, end, clip_dir)
                 segs, _ = whisper(s).transcribe(str(clip_dir / "raw.mp4"), word_timestamps=True, vad_filter=True,
                                                 language=s["language"] or None)
                 words = [(w.start, w.end, w.word) for seg in segs for w in seg.words]
