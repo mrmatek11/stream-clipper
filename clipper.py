@@ -241,6 +241,14 @@ def render(clip_dir, out_file, s, facecam=None):
         render(clip_dir, out_file, s, facecam)
 
 
+def load_audio(path):
+    """16 kHz mono float32 via ffmpeg (sidesteps faster-whisper's PyAV decoder, which breaks on new PyAV)."""
+    import numpy as np
+    pcm = run(["ffmpeg", "-loglevel", "error", "-i", str(path), "-ac", "1", "-ar", "16000", "-f", "s16le", "-"],
+              capture_output=True).stdout
+    return np.frombuffer(pcm, np.int16).astype(np.float32) / 32768
+
+
 _model = None
 
 
@@ -271,7 +279,7 @@ def process_vod(url, vid, group, s):
             clip_dir.mkdir(exist_ok=True)
             try:
                 download_clip(url, start, end, clip_dir)
-                segs, _ = whisper(s).transcribe(str(clip_dir / "raw.mp4"), word_timestamps=True, vad_filter=True,
+                segs, _ = whisper(s).transcribe(load_audio(clip_dir / "raw.mp4"), word_timestamps=True, vad_filter=True,
                                                 language=s["language"] or None)
                 words = [(w.start, w.end, w.word) for seg in segs for w in seg.words]
                 margin = 1920 - CAM_H - 140 if group.get("facecam") else s["margin_v"]
@@ -317,7 +325,7 @@ def main():
         return frame(a.frame, a.at, s)
     if a.url:
         group = next((g for g in groups if g["name"] == a.group), {})
-        return process_vod(a.url, re.sub(r"\W", "", a.url)[-12:], group, s)
+        return process_vod(a.url, re.sub(r"\W", "", a.url.split("?")[0].rstrip("/").rsplit("/", 1)[-1])[:20], group, s)
 
     done_file = Path(s["out_dir"]) / ".done"
     done = set(done_file.read_text().split()) if done_file.exists() else set()
