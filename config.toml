@@ -1,0 +1,39 @@
+# Wstaw kanały streamerów, którzy prowadzą kampanię klipowania (albo dali Ci zgodę).
+# Twitch: https://www.twitch.tv/NAZWA/videos?filter=archives&sort=time
+# YouTube: https://www.youtube.com/@NAZWA/streams
+
+[[game]]
+name = "gta6"
+channels = ["https://www.twitch.tv/KANAL1/videos?filter=archives&sort=time"]
+keywords = ["gta"]          # filtr po tytule VOD-a; [] = bierz wszystko
+
+[[game]]
+name = "tarkov"
+channels = ["https://www.twitch.tv/KANAL2/videos?filter=archives&sort=time"]
+keywords = ["tarkov", "eft"]
+
+[settings]
+out_dir = "out"
+work_dir = "work"
+vods_per_channel = 3        # ile najnowszych VOD-ów sprawdzać na kanał
+clips_per_vod = 5
+
+# wykrywanie momentów (czat)
+window = 10                 # sekundy, w których liczymy wiadomości
+min_ratio = 3.0             # min. ile razy aktywniej niż mediana VOD-a
+min_gap = 120               # min. odstęp między klipami (s)
+before = 25                 # ile sekund przed wybuchem czatu (czat reaguje z opóźnieniem)
+after = 10                  # ile sekund po
+
+# napisy (faster-whisper)
+whisper_model = "large-v3-turbo"   # RTX 3070 8GB: ok. "small" jeśli mało VRAM
+device = "cuda"                    # "cpu" jeśli bez GPU
+language = ""                      # "" = auto, albo "en", "pl", "ru"...
+words_per_line = 3
+font_size = 80
+margin_v = 520                     # odległość napisów od dołu (px na 1920)
+
+# wideo
+encoder = "h264_nvenc"      # "libx264" bez karty NVIDIA
+quality = 23                # niżej = lepiej, większy plik
+zoom = 1.3                  # przybliżenie środka gameplayu w pionie (1.0 = cały kadr)
