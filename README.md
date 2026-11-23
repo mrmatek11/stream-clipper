@@ -1,152 +1,154 @@
 <div align="center">
 
+**🇬🇧 English** · [🇵🇱 Polski](README.pl.md)
+
 # 🎬 stream-clipper
 
-**Z wielogodzinnego streama robi gotowe klipy pionowe z napisami.**
-Działa na Twoim komputerze i Twojej karcie graficznej, bez API, abonamentu i tokenów.
+**Turns hours-long streams into ready-to-post vertical clips with subtitles.**
+Runs on your own PC and GPU. No API, no subscription, no tokens.
 
-`Twitch` · `YouTube` · `Kick` · każda gra i każdy streamer · 1080×1920 · napisy w ~100 językach
+`Twitch` · `YouTube` · `Kick` · any game, any streamer · 1080×1920 · subtitles in ~100 languages
 
 </div>
 
 ---
 
-## Co dostajesz
+## What you get
 
-Wpisujesz kanały do jednego pliku i klikasz `start`. W folderze `out/` lądują gotowe pliki:
+Put channels into one file and run `start`. Finished files show up in `out/`:
 
 ```
 out/
 ├── tarkov/
-│   ├── 012.4x_v2931745878_1h23m05s.mp4   ← klip 9:16 z napisami, gotowy do wrzucenia
-│   └── 012.4x_v2931745878_1h23m05s.txt   ← opis: co padło w klipie, hashtagi, link do źródła
+│   ├── 012.4x_2931745878_1h23m05s.mp4   ← 9:16 clip with subtitles, ready to upload
+│   └── 012.4x_2931745878_1h23m05s.txt   ← caption: what was said, hashtags, source link
 └── gta6/
     └── ...
 ```
 
-Liczba na początku nazwy (`12.4x`) mówi, ile razy mocniej niż zwykle zareagował czat albo dźwięk. Sortujesz po nazwie i najlepsze klipy masz na górze listy.
+The number at the start of the name (`12.4x`) shows how many times stronger than usual chat or audio reacted. Sort by name and the best clips are on top.
 
-## Jak to działa
+## How it works
 
 ```mermaid
 flowchart LR
-    A[Kanały z config.toml] -->|yt-dlp| B[Najnowsze VOD-y]
-    B --> C{Czat dostępny?}
-    C -->|tak| D[Wybuchy czatu<br/>KEKW, LUL, W, ???]
-    C -->|nie| E[Wybuchy głośności<br/>krzyk, śmiech]
-    D --> F[Pobierz tylko te fragmenty]
+    A[Channels from config.toml] -->|yt-dlp| B[Latest VODs]
+    B --> C{Chat available?}
+    C -->|yes| D[Chat spikes<br/>KEKW, LUL, W, ???]
+    C -->|no| E[Loudness spikes<br/>screams, laughter]
+    D --> F[Download only those parts]
     E --> F
-    F -->|faster-whisper na GPU| G[Napisy]
-    G -->|ffmpeg NVENC| H[Klip 1080×1920]
+    F -->|faster-whisper on GPU| G[Subtitles]
+    G -->|ffmpeg NVENC| H[1080×1920 clip]
 ```
 
-- **Bez pobierania całych VOD-ów.** Z 8-godzinnego streama ściągane są tylko wybrane ~45-sekundowe fragmenty, a do analizy głośności sam dźwięk, strumieniowo, bez zapisu na dysk.
-- **Momenty z czatu:** YouTube działa od razu. Twitch działa po zainstalowaniu [TwitchDownloaderCLI](#czat-z-twitcha-zalecane). Bez czatu program wybiera najgłośniejsze momenty, więc działa z każdą stroną, którą obsługuje yt-dlp.
-- **Dwa układy klipu:**
-  - **bez kamerki:** rozmyte tło i przybliżony gameplay na środku,
-  - **z kamerką:** kamerka streamera u góry, gameplay na dole (format, którego zwykle oczekują kampanie klipowania).
-- **Odporny na brak GPU:** jeśli CUDA albo NVENC nie działa, sam przełącza się na procesor. Wolniej, ale działa.
+- **No full VOD downloads.** From an 8-hour stream only the chosen ~45-second parts are fetched. For loudness analysis only the audio is streamed, nothing is saved to disk.
+- **Chat moments:** YouTube works out of the box. Twitch works once you add [TwitchDownloaderCLI](#twitch-chat-recommended). Without chat the program picks the loudest moments, so it works with any site yt-dlp supports.
+- **Two clip layouts:**
+  - **no facecam:** blurred background with the zoomed gameplay in the middle,
+  - **with facecam:** streamer's camera on top, gameplay below (the format clipping campaigns usually ask for).
+- **Survives missing GPU:** if CUDA or NVENC fails, it switches to the CPU by itself. Slower, but it works.
 
-## Szybki start
+## Quick start
 
 ### Windows 10/11
 
-1. Zainstaluj Pythona: otwórz **PowerShell** i wpisz `winget install Python.Python.3.12`.
-2. Pobierz projekt: **Code → Download ZIP** na górze tej strony i rozpakuj, albo `git clone https://github.com/mrmatek11/stream-clipper`.
-3. Otwórz `config.toml` w Notatniku i wpisz kanały (patrz [Konfiguracja](#konfiguracja)).
-4. Kliknij dwa razy **`start.bat`**.
+1. Install Python: open **PowerShell** and type `winget install Python.Python.3.12`.
+2. Get the project: **Code → Download ZIP** at the top of this page and unzip it, or `git clone https://github.com/mrmatek11/stream-clipper`.
+3. Open `config.toml` in Notepad and add your channels (see [Configuration](#configuration)).
+4. Double-click **`start.bat`**.
 
-Przy pierwszym uruchomieniu skrypt sam doinstaluje ffmpeg (wtedy otwórz go jeszcze raz), biblioteki i model napisów (~1,5 GB). Kolejne uruchomienia startują od razu.
+On the first run the script installs ffmpeg (then open it again), the libraries and the subtitle model (~1.5 GB) by itself. Later runs start right away.
 
-### Kubuntu / Ubuntu / inne Linuxy
+### Kubuntu / Ubuntu / other Linux
 
 ```bash
 sudo apt install ffmpeg python3-venv git
 git clone https://github.com/mrmatek11/stream-clipper && cd stream-clipper
-nano config.toml        # wpisz kanały
+nano config.toml        # add your channels
 ./start.sh
 ```
 
-> Potrzebny jest tylko sterownik NVIDIA, który już masz, jeśli grasz. Toolkit CUDA nie jest potrzebny, biblioteki instalują się same.
+> You only need the NVIDIA driver, which you already have if you game. No CUDA Toolkit needed, the libraries install themselves.
 
-## Konfiguracja
+## Configuration
 
-Wszystko jest w `config.toml`. Grupa to jeden folder wyjściowy: jedna kampania, jedna gra albo jeden streamer.
+Everything lives in `config.toml`. A group is one output folder: one campaign, one game or one streamer.
 
 ```toml
 [[group]]
 name = "tarkov"
-channels = ["twitch:nazwa_kanalu", "youtube:nazwa_kanalu", "kick:nazwa_kanalu"]
-keywords = ["tarkov", "eft"]          # bierz tylko VOD-y z tym w tytule ([] = wszystkie)
+channels = ["twitch:channel_name", "youtube:channel_name", "kick:channel_name"]
+keywords = ["tarkov", "eft"]          # only VODs with this in the title ([] = all)
 hashtags = "#tarkov #eft #gaming"
-facecam = [0.0, 0.7, 0.25, 0.3]       # opcjonalnie: gdzie jest kamerka streamera
+facecam = [0.0, 0.7, 0.25, 0.3]       # optional: where the streamer's camera is
 ```
 
-Nowa gra albo streamer to kolejny blok `[[group]]`. Zamiast skrótu `twitch:nazwa` możesz wkleić dowolny link do kanału lub playlisty.
+A new game or streamer is just another `[[group]]` block. Instead of the `twitch:name` shorthand you can paste any channel or playlist link.
 
-### Ustawienie kamerki (`facecam`)
+### Setting up the facecam
 
 ```bash
 start.bat --frame https://www.twitch.tv/videos/123456789 --at 600
 ```
 
-Program zapisze `out/frame.png`, czyli kadr z VOD-a z czerwoną siatką co 10%. Odczytaj z niego, gdzie zaczyna się kamerka i jak jest duża. Przykład: kamerka w lewym dolnym rogu, na 25% szerokości i 30% wysokości, to `facecam = [0.0, 0.7, 0.25, 0.3]`, czyli `[x, y, szerokość, wysokość]`.
+The program saves `out/frame.png`, a frame from the VOD with a red grid every 10%. Read off where the camera starts and how big it is. Example: a camera in the bottom-left corner, 25% wide and 30% tall, is `facecam = [0.0, 0.7, 0.25, 0.3]`, i.e. `[x, y, width, height]`.
 
-## Użycie
+## Usage
 
-| Polecenie | Co robi |
+| Command | What it does |
 |---|---|
-| `start.bat` / `./start.sh` | przetwarza wszystkie kanały ze wszystkich grup |
-| `start.bat --url <link do VOD>` | jeden konkretny VOD, dobre na start do strojenia |
-| `start.bat --url <link> --group tarkov` | jeden VOD z ustawieniami grupy (kamerka, hashtagi, folder) |
-| `start.bat --frame <link> --at 600` | kadr z siatką do ustawienia kamerki |
+| `start.bat` / `./start.sh` | processes every channel in every group |
+| `start.bat --url <VOD link>` | one specific VOD, good for tuning at the start |
+| `start.bat --url <link> --group tarkov` | one VOD with a group's settings (facecam, hashtags, folder) |
+| `start.bat --frame <link> --at 600` | gridded frame for setting the facecam |
 
-Przetworzone VOD-y zapisują się w `out/.done`, więc możesz odpalać program codziennie i weźmie tylko nowe streamy. Żeby zrobić VOD jeszcze raz, usuń jego linię z tego pliku.
+Processed VODs are recorded in `out/.done`, so you can run it daily and it only picks up new streams. To redo a VOD, delete its line from that file.
 
-### Czat z Twitcha (zalecane)
+### Twitch chat (recommended)
 
-Momenty wybrane z czatu są dużo trafniejsze niż te wybrane z głośności. Dla Twitcha:
+Moments picked from chat are much more accurate than ones picked from loudness. For Twitch:
 
-1. Pobierz **TwitchDownloaderCLI** dla swojego systemu z [github.com/lay295/TwitchDownloader/releases](https://github.com/lay295/TwitchDownloader/releases).
-2. Wypakuj plik `TwitchDownloaderCLI(.exe)` do folderu `stream-clipper` (albo gdziekolwiek w `PATH`).
+1. Download **TwitchDownloaderCLI** for your system from [github.com/lay295/TwitchDownloader/releases](https://github.com/lay295/TwitchDownloader/releases).
+2. Extract `TwitchDownloaderCLI(.exe)` into the `stream-clipper` folder (or anywhere on your `PATH`).
 
-Program sam go wykryje. Bez niego Twitch też działa, tylko na podstawie głośności.
+The program detects it on its own. Without it Twitch still works, based on loudness.
 
-## Strojenie
+## Tuning
 
-| Objaw | Co zmienić w `config.toml` |
+| Symptom | What to change in `config.toml` |
 |---|---|
-| Za mało klipów | obniż `chat_min_ratio` / `audio_min_ratio` (np. 2.0) |
-| Za dużo słabych klipów | podnieś je (np. 4.0) albo zmniejsz `clips_per_vod` |
-| Klip zaczyna się po akcji | zwiększ `before` |
-| Klip urywa się za wcześnie | zwiększ `after` |
-| Gameplay za mały | zwiększ `zoom` (np. 1.6) |
-| Napisy zasłaniają HUD gry | zmień `margin_v` |
-| Napisy w złym języku | ustaw `language = "en"` (albo `"pl"`, `"ru"`...) |
-| Brak VRAM / błąd CUDA | `whisper_model = "medium"` albo `"small"` |
-| Pliki za duże | podnieś `quality` (np. 26) |
+| Too few clips | lower `chat_min_ratio` / `audio_min_ratio` (e.g. 2.0) |
+| Too many weak clips | raise them (e.g. 4.0) or lower `clips_per_vod` |
+| Clip starts after the action | raise `before` |
+| Clip ends too early | raise `after` |
+| Gameplay too small | raise `zoom` (e.g. 1.6) |
+| Subtitles cover the game HUD | change `margin_v` |
+| Subtitles in the wrong language | set `language = "en"` (or `"pl"`, `"ru"`...) |
+| Out of VRAM / CUDA error | `whisper_model = "medium"` or `"small"` |
+| Files too big | raise `quality` (e.g. 26) |
 
-## Zarabianie: jak to wygląda naprawdę
+## Making money: how it really works
 
-Program robi klipy, ale nie zarabia sam. Pieniądze przychodzą z **kampanii klipowania**: streamer albo marka płaci za każde 1000 wyświetleń klipów z jego treści, wrzuconych na TikTok, YouTube Shorts czy Instagram Reels. Kampanie znajdziesz na platformach typu Whop (zakładka *Content Rewards*) i na Discordach streamerów.
+The program makes clips, it doesn't make money by itself. The money comes from **clipping campaigns**: a streamer or brand pays per 1,000 views of clips of their content posted to TikTok, YouTube Shorts or Instagram Reels. You'll find campaigns on platforms like Whop (the *Content Rewards* tab) and on streamers' Discords.
 
-- **Bierz tylko kampanie i kanały, na które masz zgodę.** Klipy z cudzych streamów bez zgody kończą się zgłoszeniami o naruszenie praw autorskich i banem konta, na którym budujesz zasięgi.
-- **Czytaj zasady kampanii.** Często wymagają oznaczenia źródła (link jest w pliku `.txt`), konkretnych hashtagów i układu z kamerką.
-- **Przejrzyj klip przed wrzuceniem.** Program wybiera momenty automatycznie i nie każdy będzie hitem. Wrzucaj najlepsze, czyli te z najwyższą liczbą w nazwie.
-- **Wygrywa regularność:** kilka klipów dziennie przez tygodnie, a nie jeden wielki zrzut.
+- **Only take campaigns and channels you have permission for.** Clips of other people's streams without permission end in copyright strikes and a ban on the account you're growing.
+- **Read the campaign rules.** They often require crediting the source (the link is in the `.txt` file), specific hashtags and the facecam layout.
+- **Review a clip before posting.** Moments are picked automatically and not every one will be a hit. Post the best ones, the ones with the highest number in the name.
+- **Consistency wins:** a few clips a day for weeks, not one big dump.
 
-## Problemy
+## Troubleshooting
 
-| Problem | Rozwiązanie |
+| Problem | Fix |
 |---|---|
-| `can't list VODs` | sprawdź nazwę kanału; VOD-y mogą być tylko dla subów. Zaktualizuj yt-dlp: `start` robi to sam przy każdym uruchomieniu |
-| `GPU Whisper failed` | zaktualizuj sterownik NVIDIA. Program i tak działa dalej na procesorze |
-| `h264_nvenc failed` | stary sterownik albo ffmpeg bez NVENC. Program renderuje dalej na procesorze |
-| Napisy z krzaczkami na Linuxie | `sudo apt install fonts-liberation` |
-| `0 loud moments` | stream bez wyraźnych wybuchów: obniż `audio_min_ratio` albo dodaj TwitchDownloaderCLI |
+| `can't list VODs` | check the channel name; VODs may be subscriber-only. Update yt-dlp: `start` does it on every run |
+| `Whisper ... failed` | update the NVIDIA driver. The program carries on on the CPU anyway |
+| `h264_nvenc failed` | old driver or ffmpeg without NVENC. The program carries on rendering on the CPU |
+| Garbled subtitles on Linux | `sudo apt install fonts-liberation` |
+| `0 loud moments` | stream without clear spikes: lower `audio_min_ratio` or add TwitchDownloaderCLI |
 
-Test logiki: `python test_clipper.py`.
+Logic test: `python test_clipper.py`.
 
 ---
 
-<sub>Nieoficjalny projekt hobbystyczny, niezwiązany z Twitchem, YouTube, Kickiem ani wydawcami gier. Odpowiadasz za to, czyje treści klipujesz i publikujesz. Licencja MIT.</sub>
+<sub>Unofficial hobby project, not affiliated with Twitch, YouTube, Kick or any game publisher. You are responsible for whose content you clip and publish. MIT license.</sub>
